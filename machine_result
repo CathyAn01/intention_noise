@@ -305,8 +305,7 @@ def main():
                   (position.cell(i + 1, 4).value,
                    position.cell(i + 1, 5).value)
                   ) for i in range(trial_number)]
-    speed_pixel_per_second = 30
-    dimension = 21
+    speed_pixel_per_second=60
     screen_trait = dict([("color", [230, 230, 230]), ("width", speed_pixel_per_second * dimension),
                          ("height", speed_pixel_per_second * dimension)])
     action_space =[(0,1),(0,-1),(1,0),(-1,0)]
