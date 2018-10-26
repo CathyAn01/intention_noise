@@ -12,8 +12,8 @@ import xlrd
 
 def detect_within_screen(point,screen_area):
     if point != None:
-        flag1=point[0]<screen_area[0] and 0 < point[0]
-        flag2=point[1]<screen_area[1] and 0 < point[1]
+        flag1=point[0]<=screen_area[0] and 0 <= point[0]
+        flag2=point[1]<=screen_area[1] and 0 <=point[1]
         within_area_flag=flag1 and flag2
     else:
         within_area_flag = False
@@ -38,14 +38,16 @@ def two_grid_distance(grid_1,grid_2):
     distance = grid_distance_y+grid_distance_x
     return distance
 
-def Count_certain_number_in_list(list_to_manipulate, certain_number):
+def count_certain_number_in_list(list_to_manipulate, certain_number):
     count = 0
     number_index_initial = 0
+    index_list=[]
     for number in list_to_manipulate:
         if certain_number == number:
             count = count + 1
+            index_list.append(certain_number)
 
-    return count
+    return count,index_list
 
 def dict_to_string(values={}, sep="_", prefix="", postfix=""):
     signature = prefix
@@ -134,11 +136,11 @@ class Experiment(object):
 
 
 class Trial():
-    def __init__(self,screen_trait, pacman_grid,bean_grid,\
-                 action_space,speed_pixel_per_second,policy,\
-                 noise_probability,**constants):
+    def __init__(self,dimension, pacman_grid,bean_grid,\
+                 action_space,speed_pixel_per_second,policy, \
+                 foolish_wolf_standard,noise_probability,**constants):
 
-        self.screen_area=[screen_trait["width"],screen_trait["height"]]
+        self.screen_area=[dimension-1,dimension-1]
         self.noise_probability=noise_probability
         self.action_space = action_space
         self.pacman_grid= pacman_grid
@@ -146,6 +148,7 @@ class Trial():
         self.constants = constants
         self.policy=policy
         self.speed_pixel_per_second=speed_pixel_per_second
+        self.foolish_wolf_standard=foolish_wolf_standard
         self.result = {}
 
 
@@ -168,28 +171,41 @@ class Trial():
 
     def find_next_step(self,pacman_grid,pacman_trajectory_list,
                      bean1_grid, bean2_grid, step_count,noise_point_list):
-        grid_initial=pacman_grid
-        new_step_count=step_count
-        new_noise_point_list=noise_point_list
-        this_grid_policy=self.policy[(pacman_grid,(bean1_grid,bean2_grid))]
-        probability=[this_grid_policy[self.action_space[i]] for i in range (len(this_grid_policy))]
-        action_space=[str(a)  for a in self.action_space]
-        action = np.random.choice(action_space, 1, p=probability).tolist()
-        action=eval(action[0])
-        aimed_grid = tuple([x + y for (x, y) in list(zip(pacman_grid,action))])
-        new_step_count=step_count
-        if aimed_grid !=pacman_trajectory_list[-1]:
-            new_step_count=step_count+1
-        intention=self.check_intention(pacman_trajectory_list,aimed_grid,bean1_grid,bean2_grid)
-        if intention !=0 and random.random() < self.noise_probability["intention"]:
-            new_noise_point_list.append(new_step_count)
-            new_pacman_grid=self.move_to_anti_intention_bean(grid_initial,intention,bean1_grid,bean2_grid)
-        else:
-            new_pacman_grid = aimed_grid
-        if detect_within_screen(new_pacman_grid, self.screen_area):
-            new_pacman_grid=new_pacman_grid
-        else:
-            new_pacman_grid=grid_initial
+        cycle=0
+        while True:
+            grid_initial=pacman_grid
+            new_step_count=step_count
+            new_noise_point_list=noise_point_list
+            this_grid_policy=self.policy[(pacman_grid,(bean1_grid,bean2_grid))]
+            probability=[this_grid_policy[self.action_space[i]] for i in range (len(this_grid_policy))]
+            action_space=[str(a)  for a in self.action_space]
+            action = np.random.choice(action_space, 1, p=probability).tolist()
+            action=eval(action[0])
+            aimed_grid = tuple([x + y for (x, y) in list(zip(pacman_grid,action))])
+            new_step_count=step_count
+            if aimed_grid !=pacman_trajectory_list[-1]:
+                new_step_count=step_count+1
+            intention=self.check_intention(pacman_trajectory_list,aimed_grid,bean1_grid,bean2_grid)
+            if intention !=0 and random.random() < self.noise_probability["intention"]:
+                new_noise_point_list.append(new_step_count)
+                new_pacman_grid=self.move_to_anti_intention_bean(grid_initial,intention,bean1_grid,bean2_grid)
+            else:
+                new_pacman_grid = aimed_grid
+            if detect_within_screen(new_pacman_grid, self.screen_area):
+                new_pacman_grid=new_pacman_grid
+                break
+            else:
+                new_pacman_grid=grid_initial
+                cycle=cycle+1
+                if cycle>self.foolish_wolf_standard["avoid_border_maximal_step"]:
+                    all_event_posible_pacman_grid = [(pacman_grid[0] + action[0], pacman_grid[1] + action[1])
+                                                     for action in self.action_space]
+                    within_screen_flag=[detect_within_screen(grid, self.screen_area)
+                                        for grid in all_event_posible_pacman_grid]
+                    count,certain_index=count_certain_number_in_list(within_screen_flag,1)
+                    new_pacman_grid_index=np.random.choice(certain_index,1).tolist()
+                    new_pacman_grid=all_event_posible_pacman_grid[new_pacman_grid_index[0]]
+                    break
         new_pacman_position=grid_to_position(new_pacman_grid,self.speed_pixel_per_second)
         return new_pacman_position,new_pacman_grid,new_step_count,new_noise_point_list
 
@@ -213,18 +229,24 @@ class Trial():
         return new_pacman_grid
 
 
-    def check_end_condition(self,pacman_grid, bean1_grid,bean2_grid):
+    def check_end_condition(self,pacman_grid, bean1_grid,bean2_grid,step_count):
+        if step_count>self.foolish_wolf_standard["maximal_step"]:
+            end_condition1=True
+        else:
+            end_condition1=False
 
         end_condition2_1 = self.check_eaten(pacman_grid,bean1_grid)
         end_condition2_2 = self.check_eaten(pacman_grid,bean2_grid)
-        end =  end_condition2_1 or end_condition2_2
-
-        if end_condition2_1:
+        end =  end_condition1 or end_condition2_1 or end_condition2_2
+        if end_condition1:
+            exit_condition="foolish_wolf"
+        elif end_condition2_1:
             exit_condition = "bean_1_eaten"
         elif end_condition2_2:
             exit_condition = "bean_2_eaten"
         else:
             exit_condition=False
+
         return end,exit_condition
 
 
@@ -251,7 +273,6 @@ class Trial():
     def update_trajectory(self, trajectory_list,pacman_position,bean1_grid,bean2_grid):
         if pacman_position!=trajectory_list[-1]:
             trajectory_list.append(pacman_position)
-            print(pacman_position)
 
         return trajectory_list
 
@@ -270,7 +291,7 @@ class Trial():
                                      bean1_grid,bean2_grid,step_count,noise_point_list)
             pacman_trajectory_list = self.update_trajectory( pacman_trajectory_list,
                                                              pacman_grid,bean1_grid,bean2_grid)
-            exit_flag,exit_condition = self.check_end_condition( pacman_grid, bean1_grid, bean2_grid)
+            exit_flag,exit_condition = self.check_end_condition( pacman_grid, bean1_grid, bean2_grid,step_count)
 
 
         self.result["E"] = self.pacman_grid[trial_index][0]
@@ -305,10 +326,12 @@ def main():
                   (position.cell(i + 1, 4).value,
                    position.cell(i + 1, 5).value)
                   ) for i in range(trial_number)]
-    speed_pixel_per_second=60
+    speed_pixel_per_second = 30
+    dimension = 21
     screen_trait = dict([("color", [230, 230, 230]), ("width", speed_pixel_per_second * dimension),
                          ("height", speed_pixel_per_second * dimension)])
     action_space =[(0,1),(0,-1),(1,0),(-1,0)]
+    foolish_wolf_standard={"maximal_step":200,"avoid_border_maximal_step":150}
     noise_probability = {"intention": 0.1}
     trialnumber = 60
     result_header = ['name', "subNum", "subInit", "design_values",
@@ -322,10 +345,10 @@ def main():
     test_or_experiment = input("test or experiment? ")
     design_value = list(range(trialnumber))
     expt = Experiment(design_value, participant_name, participant_order, test_or_experiment)
-    path = os.path.join(file_path["results_path"], expt.get_expt_signature(sep="_", postfix=".csv"))
-    trial = Trial(screen_trait,pacman_grid, bean_grid, \
-                  action_space,speed_pixel_per_second, policy,\
-                  noise_probability)
+    path = os.path.join(file_path["results_path"], expt.get_expt_signature(sep="_", postfix=".xlsx"))
+    trial = Trial(dimension,pacman_grid, bean_grid, \
+                  action_space,speed_pixel_per_second, policy, \
+                  foolish_wolf_standard,noise_probability)
     writer = Writer(path, result_header, replace=False)
     print("loading......")
     expt(trialnumber, trial, writer)
