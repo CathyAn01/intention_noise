@@ -58,14 +58,6 @@ def dict_to_string(values={}, sep="_", prefix="", postfix=""):
     signature = signature.lstrip(sep)
     return signature
 
-def detect_within_screen(point,screen_area):
-    if point != None:
-        flag1=point[0]<screen_area[0] and 0 < point[0]
-        flag2=point[1]<screen_area[1] and 0 < point[1]
-        within_area_flag=flag1 and flag2
-    else:
-        within_area_flag = False
-    return within_area_flag
 
 class Writer(object):
 
@@ -292,6 +284,7 @@ class Trial():
             pacman_trajectory_list = self.update_trajectory( pacman_trajectory_list,
                                                              pacman_grid,bean1_grid,bean2_grid)
             exit_flag,exit_condition = self.check_end_condition( pacman_grid, bean1_grid, bean2_grid,step_count)
+
 
 
         self.result["E"] = self.pacman_grid[trial_index][0]
