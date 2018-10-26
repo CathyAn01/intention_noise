@@ -13,8 +13,8 @@ import xlrd
 
 def detect_within_screen(point,screen_area):
     if point != None:
-        flag1=point[0]<=screen_area[0] and 0 <= point[0]
-        flag2=point[1]<=screen_area[1] and 0 <=point[1]
+        flag1=point[0]>=0 and point[0]<=screen_area[0]
+        flag2=point[1]>=0 and point[1]<=screen_area[1]
         within_area_flag=flag1 and flag2
     else:
         within_area_flag = False
@@ -39,14 +39,16 @@ def two_grid_distance(grid_1,grid_2):
     distance = grid_distance_y+grid_distance_x
     return distance
 
-def Count_certain_number_in_list(list_to_manipulate, certain_number):
+def count_certain_number_in_list(list_to_manipulate, certain_number):
     count = 0
     number_index_initial = 0
+    index_list=[]
     for number in list_to_manipulate:
         if certain_number == number:
             count = count + 1
+            index_list.append(certain_number)
 
-    return count
+    return count,index_list
 
 def dict_to_string(values={}, sep="_", prefix="", postfix=""):
     signature = prefix
@@ -57,14 +59,6 @@ def dict_to_string(values={}, sep="_", prefix="", postfix=""):
     signature = signature.lstrip(sep)
     return signature
 
-def detect_within_screen(point,screen_area):
-    if point != None:
-        flag1=point[0]<screen_area[0] and 0 < point[0]
-        flag2=point[1]<screen_area[1] and 0 < point[1]
-        within_area_flag=flag1 and flag2
-    else:
-        within_area_flag = False
-    return within_area_flag
 
 class Writer(object):
 
@@ -137,9 +131,10 @@ class Experiment(object):
 class Trial():
     def __init__(self, screen_trait,background_trait,bean_trait,pacman_trait,file_path,time,\
                  center_position,pacman_grid,bean_grid,\
-                 action_space,speed_pixel_per_second,policy,\
-                 noise_probability,font_information,**constants):
+                 action_space,speed_pixel_per_second,policy, \
+                 foolish_wolf_standard,noise_probability,font_information,dimension,**constants):
         self.screen_area=[screen_trait["width"],screen_trait["height"]]
+        self.screen_area_grid=[dimension-1,dimension-1]
         self.background_trait=background_trait
         self.screen = pg.display.set_mode(self.screen_area)
         self.screen_rect = self.screen.get_rect()
@@ -176,6 +171,7 @@ class Trial():
         self.text_size=font_information["size"]
         self.text_type = font_information["type"]
         self.rest_time=time["rest_time_trial"]
+        self.foolish_wolf_standard=foolish_wolf_standard
         self.speed_pixel_per_second=speed_pixel_per_second
         self.result = {}
 
@@ -265,11 +261,11 @@ class Trial():
                 new_step_count=step_count+1
             intention=self.check_intention(pacman_trajectory_list,aimed_grid,bean1_grid,bean2_grid)
             if intention !=0 and random.random() < self.noise_probability["intention"]:
-                new_noise_point_list.append(new_step_count)
-                new_pacman_grid=self.move_to_anti_intention_bean(grid_initial,intention,bean1_grid,bean2_grid)
+                 new_noise_point_list.append(new_step_count)
+                 new_pacman_grid=self.move_to_anti_intention_bean(grid_initial,intention,bean1_grid,bean2_grid)
             else:
-                new_pacman_grid = aimed_grid
-            if detect_within_screen(new_pacman_grid, self.screen_area):
+            new_pacman_grid = aimed_grid
+            if detect_within_screen(new_pacman_grid, self.screen_area_grid):
                 new_pacman_grid=new_pacman_grid
                 break
             else:
@@ -387,7 +383,13 @@ class Trial():
                                      bean1_grid,bean2_grid,step_count,noise_point_list)
             pacman_trajectory_list = self.update_trajectory( pacman_trajectory_list, pacman_grid)
             exit_flag,exit_condition = self.check_end_condition( pacman_grid, bean1_grid, bean2_grid)
-            pg.time.delay(500)
+            pg.event.set_allowed([KEYDOWN, KEYUP])
+            while True:
+                event = pg.event.wait()
+                if event.type == pg.KEYDOWN:
+                    if event.key == pg.K_SPACE:
+                        break
+
 
         self.result["E"] = self.pacman_grid[trial_index][0]
         self.result["F"] = self.pacman_grid[trial_index][1]
@@ -456,8 +458,8 @@ def main():
     path = os.path.join(file_path["results_path"], expt.get_expt_signature(sep="_", postfix=".csv"))
     trial = Trial(screen_trait, background_trait, bean_trait, pacman_trait, file_path, time, \
                   center_position, pacman_grid, bean_grid, \
-                  action_space,speed_pixel_per_second, policy,\
-                  noise_probability, font_information)
+                  action_space,speed_pixel_per_second, policy, \
+                  foolish_wolf_standard,noise_probability, font_information,dimension)
     writer = Writer(path, result_header, replace=False)
     print("loading......")
     expt(trialnumber, trial, writer)
