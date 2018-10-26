@@ -40,12 +40,11 @@ def two_grid_distance(grid_1,grid_2):
 
 def count_certain_number_in_list(list_to_manipulate, certain_number):
     count = 0
-    number_index_initial = 0
     index_list=[]
-    for number in list_to_manipulate:
-        if certain_number == number:
+    for i in range(len(list_to_manipulate)):
+        if certain_number == list_to_manipulate[i]:
             count = count + 1
-            index_list.append(certain_number)
+            index_list.append(i)
 
     return count,index_list
 
@@ -162,7 +161,7 @@ class Trial():
         return intention
 
     def find_next_step(self,pacman_grid,pacman_trajectory_list,
-                     bean1_grid, bean2_grid, step_count,noise_point_list):
+                     bean1_grid, bean2_grid, step_count,noise_point_list,intention_list):
         cycle=0
         while True:
             grid_initial=pacman_grid
@@ -178,6 +177,7 @@ class Trial():
             if aimed_grid !=pacman_trajectory_list[-1]:
                 new_step_count=step_count+1
             intention=self.check_intention(pacman_trajectory_list,aimed_grid,bean1_grid,bean2_grid)
+            intention_list.append(intention)
             if intention !=0 and random.random() < self.noise_probability["intention"]:
                 new_noise_point_list.append(new_step_count)
                 new_pacman_grid=self.move_to_anti_intention_bean(grid_initial,intention,bean1_grid,bean2_grid)
@@ -199,7 +199,7 @@ class Trial():
                     new_pacman_grid=all_event_posible_pacman_grid[new_pacman_grid_index[0]]
                     break
         new_pacman_position=grid_to_position(new_pacman_grid,self.speed_pixel_per_second)
-        return new_pacman_position,new_pacman_grid,new_step_count,new_noise_point_list
+        return new_pacman_position,new_pacman_grid,new_step_count,new_noise_point_list,intention_list
 
     def move_to_anti_intention_bean(self,pacman_grid, intention, bean1_grid, bean2_grid):
         if intention==0:
@@ -277,15 +277,24 @@ class Trial():
         exit_flag = False
         step_count=0
         noise_point_list=[]
+        intention_list=[]
         while not exit_flag:
-            pacman_position,pacman_grid,step_count,noise_point_list =\
+            pacman_position,pacman_grid,step_count,noise_point_list,intention_list =\
                 self.find_next_step( pacman_grid,pacman_trajectory_list,
-                                     bean1_grid,bean2_grid,step_count,noise_point_list)
+                                     bean1_grid,bean2_grid,step_count,
+                                     noise_point_list,intention_list)
             pacman_trajectory_list = self.update_trajectory( pacman_trajectory_list,
                                                              pacman_grid,bean1_grid,bean2_grid)
             exit_flag,exit_condition = self.check_end_condition( pacman_grid, bean1_grid, bean2_grid,step_count)
-
-
+        intention_count_1,intention_index_2=count_certain_number_in_list(intention_list,1 )
+        intention_count_2, intention_index_1 = count_certain_number_in_list(intention_list, 2)
+        intention_index=intention_index_1+intention_index_2
+        if len(intention_index) !=0:
+            first_intention=intention_list[min(intention_index)]
+            last_intention=intention_list[-1]
+        else:
+            first_intention=0
+            last_intention=0
 
         self.result["E"] = self.pacman_grid[trial_index][0]
         self.result["F"] = self.pacman_grid[trial_index][1]
@@ -297,6 +306,8 @@ class Trial():
         self.result["L"]=str(noise_point_list)
         self.result["M"] = str(pacman_trajectory_list)
         self.result["N"] = len(pacman_trajectory_list)-1
+        self.result["O"] = first_intention
+        self.result["P"] = last_intention
         return self.result
 
 
@@ -332,7 +343,8 @@ def main():
                      "bean_1_initial_grid_x", "bean_1_initial_grid_y",
                      "bean_2_initial_grid_x", "bean_2_initial_grid_y",
                      "end_condition_reason", "noise_point",
-                     "pacman_trajectory","step"]
+                     "pacman_trajectory","step","first_intention",
+                     "last_intention"]
     participant_name = input("Please enter your name:")
     participant_order = input("Please enter your order:")
     test_or_experiment = input("test or experiment? ")
