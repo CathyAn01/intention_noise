@@ -1,0 +1,48 @@
+import pandas as pd
+import os
+
+def Count_prediction_error_n_step(data,intention_data_list,n_step):
+    data_number=data.shape[0]
+    count_correct_prediction=0
+    for i in range(data_number):
+        if data.iat[i]==intention_data_list[i][n_step]:
+            count_correct_prediction=count_correct_prediction+1
+
+    prediction_error_n_step=count_correct_prediction/data_number
+    return prediction_error_n_step
+
+def Count_first_intention_prediction_error(data,first_intention,last_intention):
+    prediction_correct_data=data[data["first_intention"]==data["last_intention"]]
+    prediction_error=prediction_correct_data.shape[0]/data.shape[0]
+    return prediction_error
+
+def list_all_certain_format_filename(file_path,file_format):
+    absolute_filename=[os.path.join(file_path,relative_filename) for relative_filename in os.listdir(file_path)
+                       if os.path.isfile(os.path.join(file_path,relative_filename))
+                       if os.path.splitext(relative_filename)[1] in file_format]
+    return absolute_filename
+
+def preprocess_str_list_data(data_df,particular_columns):
+    data_pre_list = [data_df.iat[i, particular_columns] for i in range(len(data_df))]
+    data_list = [eval(data) for data in data_pre_list ]
+    return data_list
+
+def main():
+    project_path = os.path.abspath(".")
+    file_path = dict([("results_path", os.path.join(project_path, "results/"))])
+    file_format = [".xlsx"]
+    certain_format_file_name = list_all_certain_format_filename(file_path["results_path"], file_format)
+    data_frame_list =pd.read_excel(certain_format_file_name[0])
+    data = pd.DataFrame(data_frame_list)
+    average_step=data["step"].mean()
+    prediction_error=Count_first_intention_prediction_error(data,data["first_intention"],data["last_intention"])
+    intention_data_list = preprocess_str_list_data(data,16)
+    prediction_error_n_step=Count_prediction_error_n_step(data["last_intention"],intention_data_list,1)
+    result = dict([("average_step",average_step), ("prediction_error",prediction_error),
+                   ("prediction_error_1_step",prediction_error_n_step)])
+
+
+
+
+if __name__ == "__main__":
+    main()
