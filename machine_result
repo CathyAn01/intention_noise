@@ -291,9 +291,13 @@ class Trial():
         intention_index=intention_index_1+intention_index_2
         if len(intention_index) !=0:
             first_intention=intention_list[min(intention_index)]
-            last_intention=intention_list[-1]
         else:
             first_intention=0
+        if exit_condition=="bean_1_eaten":
+            last_intention=1
+        elif exit_condition=="bean_2_eaten":
+            last_intention=2
+        else:
             last_intention=0
 
         self.result["E"] = self.pacman_grid[trial_index][0]
@@ -308,6 +312,7 @@ class Trial():
         self.result["N"] = len(pacman_trajectory_list)-1
         self.result["O"] = first_intention
         self.result["P"] = last_intention
+        self.result["Q"]=str(intention_list)
         return self.result
 
 
@@ -344,7 +349,7 @@ def main():
                      "bean_2_initial_grid_x", "bean_2_initial_grid_y",
                      "end_condition_reason", "noise_point",
                      "pacman_trajectory","step","first_intention",
-                     "last_intention"]
+                     "last_intention","intention"]
     participant_name = input("Please enter your name:")
     participant_order = input("Please enter your order:")
     test_or_experiment = input("test or experiment? ")
