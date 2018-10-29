@@ -1,6 +1,5 @@
 import pickle
 import os
-import sys
 import xlrd
 import random
 import openpyxl
@@ -210,13 +209,16 @@ class Trial():
             if intention==1:
                 all_possible_distance=[[two_grid_distance(all_event_posible_pacman_grid[i],bean2_grid),all_event_posible_pacman_grid[i]]
                                    for i in range(len(all_event_posible_pacman_grid))]
-                all_possible_distance_ordered=sorted(all_possible_distance,key=lambda x:x[0])
-                new_pacman_grid=all_possible_distance_ordered[random.randint(0,1)][1]
             else:
                 all_possible_distance=[[two_grid_distance(all_event_posible_pacman_grid[i],bean1_grid),all_event_posible_pacman_grid[i]]
                                    for i in range(len(all_event_posible_pacman_grid))]
-                all_possible_distance_ordered=sorted(all_possible_distance,key=lambda x:x[0])
-                new_pacman_grid=all_possible_distance_ordered[random.randint(0,1)][1]
+
+            all_possible_distance_N_grid_ordered = sorted(all_possible_distance, key=lambda x: x[0])
+            all_possible_distance_ordered = [distance[0] for distance in all_possible_distance_N_grid_ordered]
+            count, index_list = count_certain_number_in_list(all_possible_distance_ordered,
+                                                             all_possible_distance_ordered[-1])
+            min_index = int(count - 1)
+            new_pacman_grid = all_possible_distance_N_grid_ordered[random.randint(0, min_index)][1]
         new_pacman_grid=tuple(new_pacman_grid)
         return new_pacman_grid
 
@@ -269,7 +271,6 @@ class Trial():
         return trajectory_list
 
     def __call__(self, trial_index):
-        print(trial_index)
         pacman_grid= self.pacman_grid[trial_index]
         bean1_grid =self.bean_grid[trial_index][0]
         bean2_grid = self.bean_grid[trial_index][1]
