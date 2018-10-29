@@ -260,21 +260,23 @@ class Trial():
         if intention==0:
             new_pacman_grid=pacman_grid
         else:
-            all_event_posible_pacman_grid= [[pacman_grid[0]+self.action_space[per_event][0],pacman_grid[1]+\
-                               self.action_space[per_event][1]/self.speed_pixel_per_second
-                ]for per_event in self.event_space]
+            all_event_posible_pacman_grid= [(pacman_grid[0]+action[0],pacman_grid[1]+action[1])
+                                             for action in self.action_space]
             if intention==1:
                 all_possible_distance=[[two_grid_distance(all_event_posible_pacman_grid[i],bean2_grid),all_event_posible_pacman_grid[i]]
                                    for i in range(len(all_event_posible_pacman_grid))]
-                all_possible_distance_ordered=sorted(all_possible_distance,key=lambda x:x[0])
-                new_pacman_grid=all_possible_distance_ordered[random.randint(0,1)][1]
             else:
                 all_possible_distance=[[two_grid_distance(all_event_posible_pacman_grid[i],bean1_grid),all_event_posible_pacman_grid[i]]
                                    for i in range(len(all_event_posible_pacman_grid))]
-                all_possible_distance_ordered=sorted(all_possible_distance,key=lambda x:x[0])
-                new_pacman_grid=all_possible_distance_ordered[random.randint(0,1)][1]
 
-        return new_pacman_grid
+            all_possible_distance_N_grid_ordered = sorted(all_possible_distance, key=lambda x: x[0])
+            all_possible_distance_ordered = [distance[0] for distance in all_possible_distance_N_grid_ordered]
+            count, index_list = count_certain_number_in_list(all_possible_distance_ordered,
+                                                             all_possible_distance_ordered[-1])
+            min_index = int(count - 1)
+            new_pacman_grid = all_possible_distance_N_grid_ordered[random.randint(0, min_index)][1]
+        new_pacman_grid=tuple(new_pacman_grid)
+        return(new_pacman_grid)
 
     def update_trajectory(self,event, trajectory_list,pacman_position):
         if event.type == pg.KEYDOWN and event.key in self.event_space:
