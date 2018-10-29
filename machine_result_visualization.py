@@ -226,6 +226,8 @@ class Trial():
         pacman_bean1_initial_displacement=two_grid_distance(bean_1_grid,pacman_trajectory_list[-1])
         pacman_bean2_initial_displacement = two_grid_distance(bean_2_grid,pacman_trajectory_list[-1])
         intention_bean1= pacman_bean1_initial_displacement-pacman_bean1_aimed_displacement
+        print(pacman_bean1_aimed_displacement,pacman_bean1_initial_displacement,
+              pacman_bean2_aimed_displacement,pacman_bean2_initial_displacement)
         intention_bean2= pacman_bean2_initial_displacement-pacman_bean2_aimed_displacement
         if intention_bean1>intention_bean2:
             intention=1
@@ -260,11 +262,12 @@ class Trial():
             if aimed_grid !=pacman_trajectory_list[-1]:
                 new_step_count=step_count+1
             intention=self.check_intention(pacman_trajectory_list,aimed_grid,bean1_grid,bean2_grid)
+            print(intention)
             if intention !=0 and random.random() < self.noise_probability["intention"]:
-                 new_noise_point_list.append(new_step_count)
-                 new_pacman_grid=self.move_to_anti_intention_bean(grid_initial,intention,bean1_grid,bean2_grid)
+                new_noise_point_list.append(new_step_count)
+                new_pacman_grid=self.move_to_anti_intention_bean(grid_initial,intention,bean1_grid,bean2_grid)
             else:
-            new_pacman_grid = aimed_grid
+                new_pacman_grid = aimed_grid
             if detect_within_screen(new_pacman_grid, self.screen_area_grid):
                 new_pacman_grid=new_pacman_grid
                 break
@@ -292,15 +295,18 @@ class Trial():
             if intention==1:
                 all_possible_distance=[[two_grid_distance(all_event_posible_pacman_grid[i],bean2_grid),all_event_posible_pacman_grid[i]]
                                    for i in range(len(all_event_posible_pacman_grid))]
-                all_possible_distance_ordered=sorted(all_possible_distance,key=lambda x:x[0])
-                new_pacman_grid=all_possible_distance_ordered[random.randint(0,1)][1]
             else:
                 all_possible_distance=[[two_grid_distance(all_event_posible_pacman_grid[i],bean1_grid),all_event_posible_pacman_grid[i]]
                                    for i in range(len(all_event_posible_pacman_grid))]
-                all_possible_distance_ordered=sorted(all_possible_distance,key=lambda x:x[0])
-                new_pacman_grid=all_possible_distance_ordered[random.randint(0,1)][1]
+
+            all_possible_distance_N_grid_ordered = sorted(all_possible_distance, key=lambda x: x[0])
+            all_possible_distance_ordered = [distance[0] for distance in all_possible_distance_N_grid_ordered]
+            count, index_list = count_certain_number_in_list(all_possible_distance_ordered,
+                                                             all_possible_distance_ordered[-1])
+            min_index = int(count - 1)
+            new_pacman_grid = all_possible_distance_N_grid_ordered[random.randint(0, min_index)][1]
         new_pacman_grid=tuple(new_pacman_grid)
-        return new_pacman_grid
+        return (new_pacman_grid)
 
 
     def check_end_condition(self,pacman_grid, bean1_grid,bean2_grid):
@@ -378,17 +384,18 @@ class Trial():
         noise_point_list=[]
         while not exit_flag:
             self.update_screen(pacman_position,bean1_position,bean2_position)
+            while True:
+                event = pg.event.wait()
+                if event.type == pg.KEYDOWN:
+                    if event.key == pg.K_SPACE:
+                        break
             pacman_position,pacman_grid,step_count,noise_point_list =\
                 self.find_next_step( pacman_grid,pacman_trajectory_list,
                                      bean1_grid,bean2_grid,step_count,noise_point_list)
             pacman_trajectory_list = self.update_trajectory( pacman_trajectory_list, pacman_grid)
             exit_flag,exit_condition = self.check_end_condition( pacman_grid, bean1_grid, bean2_grid)
             pg.event.set_allowed([KEYDOWN, KEYUP])
-            while True:
-                event = pg.event.wait()
-                if event.type == pg.KEYDOWN:
-                    if event.key == pg.K_SPACE:
-                        break
+
 
 
         self.result["E"] = self.pacman_grid[trial_index][0]
@@ -455,7 +462,7 @@ def main():
     design_value = list(range(trialnumber))
     random.shuffle(design_value)
     expt = Experiment(design_value, participant_name, participant_order, test_or_experiment)
-    path = os.path.join(file_path["results_path"], expt.get_expt_signature(sep="_", postfix=".csv"))
+    path = os.path.join(file_path["results_path"], expt.get_expt_signature(sep="_", postfix=".xlsx"))
     trial = Trial(screen_trait, background_trait, bean_trait, pacman_trait, file_path, time, \
                   center_position, pacman_grid, bean_grid, \
                   action_space,speed_pixel_per_second, policy, \
