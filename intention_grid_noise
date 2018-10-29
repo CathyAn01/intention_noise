@@ -9,6 +9,16 @@ from pygame.locals import *
 import time
 import xlrd
 
+def count_certain_number_in_list(list_to_manipulate, certain_number):
+    count = 0
+    number_index_initial = 0
+    index_list=[]
+    for number in list_to_manipulate:
+        if certain_number == number:
+            count = count + 1
+            index_list.append(certain_number)
+
+    return count,index_list
 
 def Read_position_file(position_file_path):
     data = xlrd.open_workbook(position_file_path)
@@ -67,8 +77,8 @@ def set_random_point(dimension,speed_pixel_per_second):
 
 def detect_within_screen(point,screen_area):
     if point != None:
-        flag1=point[0]<screen_area[0] and 0 < point[0]
-        flag2=point[1]<screen_area[1] and 0 < point[1]
+        flag1=point[0]>=0 and point[0]<=screen_area[0]
+        flag2=point[1]>=0 and point[1]<=screen_area[1]
         within_area_flag=flag1 and flag2
     else:
         within_area_flag = False
@@ -117,8 +127,9 @@ class Trial():
     def __init__(self, screen_trait,background_trait,bean_trait,pacman_trait,file_path,time,\
                  center_position,pacman_grid,bean_grid,\
                  action_space,event_space,speed_pixel_per_second,\
-                 noise_probability,font_information,score_information,count_step,**constants):
+                 noise_probability,font_information,score_information,count_step,dimension,**constants):
         self.screen_area=[screen_trait["width"],screen_trait["height"]]
+        self.screen_area_grid=[dimension-1,dimension-1]
         self.background_trait=background_trait
         self.screen = pg.display.set_mode(self.screen_area)
         self.screen_rect = self.screen.get_rect()
@@ -231,7 +242,7 @@ class Trial():
         pg.display.flip()
 
     def check_events(self, event, pacman_position, pacman_grid,pacman_trajectory_list,
-                     bean1_grid, bean2_grid, step_count,noise_point_list):
+                     bean1_grid, bean2_grid, step_count,noise_point_list,intention_list):
         grid_initial=pacman_grid
         new_step_count=step_count
         new_noise_point_list=noise_point_list
@@ -242,26 +253,28 @@ class Trial():
                                                      [self.action_space[event.key][0] / self.speed_pixel_per_second,
                                                       self.action_space[event.key][1] / self.speed_pixel_per_second]))]
             intention=self.check_intention(pacman_trajectory_list,aimed_grid,bean1_grid,bean2_grid)
+            intention_list.append(intention)
             if intention !=0 and random.random() < self.noise_probability["intention"]:
-                new_noise_point_list=noise_point_list.append(new_step_count)
+                noise_point_list.append(new_step_count)
                 new_pacman_grid=self.move_to_anti_intention_bean(grid_initial,intention,bean1_grid,bean2_grid)
             else:
                 new_pacman_grid = aimed_grid
         else:
             new_pacman_grid=grid_initial
-        if detect_within_screen(new_pacman_grid, self.screen_area):
+        if detect_within_screen(new_pacman_grid, self.screen_area_grid):
             new_pacman_grid=new_pacman_grid
         else:
             new_pacman_grid=grid_initial
         new_pacman_position=grid_to_position(new_pacman_grid,self.speed_pixel_per_second)
-        return new_pacman_position,new_pacman_grid,new_step_count,new_noise_point_list
+        return new_pacman_position,new_pacman_grid,new_step_count,noise_point_list,intention_list
 
     def move_to_anti_intention_bean(self,pacman_grid, intention, bean1_grid, bean2_grid):
         if intention==0:
             new_pacman_grid=pacman_grid
         else:
-            all_event_posible_pacman_grid= [(pacman_grid[0]+action[0],pacman_grid[1]+action[1])
-                                             for action in self.action_space]
+            all_event_posible_pacman_grid = [[pacman_grid[0] + self.action_space[per_event][0], pacman_grid[1] + \
+                                              self.action_space[per_event][1] / self.speed_pixel_per_second
+                                              ] for per_event in self.event_space]
             if intention==1:
                 all_possible_distance=[[two_grid_distance(all_event_posible_pacman_grid[i],bean2_grid),all_event_posible_pacman_grid[i]]
                                    for i in range(len(all_event_posible_pacman_grid))]
@@ -349,6 +362,25 @@ class Trial():
             check_eaten=False
         return check_eaten
 
+    def check_first_intention(self, intention_list):
+        intention_count_1,intention_index_2=count_certain_number_in_list(intention_list,1 )
+        intention_count_2, intention_index_1 = count_certain_number_in_list(intention_list, 2)
+        intention_index=intention_index_1+intention_index_2
+        if len(intention_index) != 0:
+            first_intention = intention_list[min(intention_index)]
+        else:
+            first_intention = 0
+        return first_intention
+
+    def check_last_intention(self,exit_condition):
+        if exit_condition == "bean_1_eaten":
+            last_intention = 1
+        elif exit_condition == "bean_2_eaten":
+            last_intention = 2
+        else:
+            last_intention = 0
+        return last_intention
+
     def __call__(self, trial_index):
         pacman_grid= self.pacman_grid[trial_index]
         bean1_grid =self.bean_grid[trial_index][0]
@@ -364,11 +396,14 @@ class Trial():
         pg.event.set_allowed([KEYDOWN, KEYUP])
         step_count=0
         noise_point_list=[]
+        intention_list=[]
         while not exit_flag:
             self.update_screen(pacman_position, bean1_position, bean2_position)
             for event in pg.event.get():
-                pacman_position,pacman_grid,step_count,noise_point_list = self.check_events(event, pacman_position,pacman_grid,pacman_trajectory_list,
-                                                               bean1_grid,bean2_grid,step_count,noise_point_list)
+                pacman_position,pacman_grid,step_count,noise_point_list,intention_list\
+                        = self.check_events(event, pacman_position,pacman_grid,\
+                        pacman_trajectory_list,bean1_grid,bean2_grid,step_count,\
+                                            noise_point_list,intention_list)
                 pacman_trajectory_list=self.update_trajectory(event,pacman_trajectory_list,pacman_grid)
                 response_current_time_list=self.update_response_time(event,response_current_time_list)
                 exit_flag,exit_condition = self.check_end_condition(event, pacman_grid, bean1_grid, bean2_grid)
@@ -377,105 +412,26 @@ class Trial():
         reaction_time=[response_current_time_list[i+1]-response_current_time_list[i] for i in range(len(response_current_time_list)-1)]
         self.give_feedback(pacman_position, bean1_position, bean2_position, exit_condition)
         end_trial_time=time.time()
-        self.result["E"] = self.bean_grid[trial_index][0][0]
-        self.result["F"] = self.bean_grid[trial_index][0][1]
-        self.result["G"] = self.bean_grid[trial_index][1][0]
-        self.result["H"] = self.bean_grid[trial_index][1][1]
-        self.result["I"] = self.pacman_grid[trial_index][0]
-        self.result["J"] = self.pacman_grid[trial_index][1]
+        first_intention = self.check_first_intention(intention_list)
+        last_intention = self.check_last_intention(exit_condition)
+        self.result["E"] = self.pacman_grid[trial_index][0]
+        self.result["F"] = self.pacman_grid[trial_index][1]
+        self.result["G"] = self.bean_grid[trial_index][0][0]
+        self.result["H"] = self.bean_grid[trial_index][0][1]
+        self.result["I"] = self.bean_grid[trial_index][1][0]
+        self.result["J"] = self.bean_grid[trial_index][1][1]
         self.result["K"] = exit_condition
-        self.result["L"] = end_trial_time - initial_trial_time
-        self.result["M"]=str(noise_point_list)
-        self.result["N"] = str(pacman_trajectory_list)
-        self.result["O"] = str(reaction_time)
+        self.result["L"]=str(noise_point_list)
+        self.result["M"] = str(pacman_trajectory_list)
+        self.result["N"] = len(pacman_trajectory_list)-1
+        self.result["O"] = first_intention
+        self.result["P"] = last_intention
+        self.result["Q"] = str(intention_list)
+        self.result["R"] = str(reaction_time)
+        self.result["S"] = end_trial_time - initial_trial_time
+
         return self.result
 
-class Generate_bean_grid():
-    def __init__(self,dimension):
-        self.dimension=dimension
-
-    def __call__(self,min_grid_distance):
-        while True:
-            bean1_grid=set_random_grid(self.dimension)
-            bean2_grid=set_random_grid(self.dimension)
-            bean_distance=two_grid_distance(bean1_grid,bean2_grid)
-            if bean_distance>min_grid_distance and bean_distance%2==0:
-                break
-        return [bean1_grid,bean2_grid]
-
-class Generate_pacman_grid():
-    def __init__(self,bean_grid,dimension):
-        self.bean_grid=bean_grid
-        self.dimension=dimension
-
-    def __call__(self,trial_index):
-        bean_distance=two_grid_distance(self.bean_grid[trial_index][1],self.bean_grid[trial_index][0])
-        delta_x=abs(self.bean_grid[trial_index][1][1]-self.bean_grid[trial_index][0][1])
-        delta_y=abs(self.bean_grid[trial_index][0][0]-self.bean_grid[trial_index][1][0])
-        if delta_y!=0:
-            gradient=(self.bean_grid[trial_index][0][1]-self.bean_grid[trial_index][1][1])/(self.bean_grid[trial_index][0][0]-self.bean_grid[trial_index][1][0])
-            if gradient <0:
-                left_down_grid_index=[self.bean_grid[trial_index][0][0],self.bean_grid[trial_index][1][0]].\
-                    index(max([self.bean_grid[trial_index][0][0],self.bean_grid[trial_index][1][0]]))
-                right_up_grid_index=not left_down_grid_index
-                if bean_distance/2<delta_x:
-                    min_mid_point1=[self.bean_grid[trial_index][left_down_grid_index][0],
-                                    self.bean_grid[trial_index][left_down_grid_index][1]+bean_distance/2]
-                    min_mid_point2 = [self.bean_grid[trial_index][right_up_grid_index][0],
-                                      self.bean_grid[trial_index][right_up_grid_index][1] - bean_distance / 2]
-                    if random.random()<0.5:
-                        pacman_grid=[random.randint(min_mid_point1[0],self.dimension-1),min_mid_point1[1]]
-                    else:
-                        pacman_grid = [random.randint(0,min_mid_point2[0]), min_mid_point2[1]]
-
-                else:
-                    min_mid_point1=[self.bean_grid[trial_index][left_down_grid_index][0]-(bean_distance/2-delta_x),
-                                    self.bean_grid[trial_index][right_up_grid_index][1]]
-                    min_mid_point2 = [self.bean_grid[trial_index][right_up_grid_index][0] + (bean_distance / 2 - delta_x),
-                                      self.bean_grid[trial_index][left_down_grid_index][1]]
-                    if random.random()<0.5:
-                        pacman_grid=[min_mid_point1[0],random.randint(min_mid_point1[1],self.dimension-1)]
-                    else:
-                        pacman_grid = [min_mid_point2[0],random.randint(0,min_mid_point2[1])]
-
-            else:
-                left_up_grid_index = [self.bean_grid[trial_index][0][0], self.bean_grid[trial_index][1][0]]. \
-                    index(min([self.bean_grid[trial_index][0][0], self.bean_grid[trial_index][1][0]]))
-                right_down_grid_index = not left_up_grid_index
-                if bean_distance/2<delta_x:
-                    min_mid_point1 = [self.bean_grid[trial_index][left_up_grid_index][0] ,
-                                      self.bean_grid[trial_index][left_up_grid_index][1]+bean_distance/2]
-                    min_mid_point2 = [self.bean_grid[trial_index][right_down_grid_index][0],
-                                      self.bean_grid[trial_index][right_down_grid_index][1]-bean_distance/2]
-                    if random.random()<0.5:
-                        pacman_grid=[random.randint(0,min_mid_point1[0]),min_mid_point1[1]]
-                    else:
-                        pacman_grid = [random.randint(min_mid_point2[0],self.dimension-1),min_mid_point2[1]]
-
-                else:
-                    min_mid_point1=[self.bean_grid[trial_index][left_up_grid_index][0]+bean_distance/2-delta_x,
-                                    self.bean_grid[trial_index][right_down_grid_index][1]]
-                    min_mid_point2 = [self.bean_grid[trial_index][right_down_grid_index][0]-(bean_distance/2-delta_x),
-                                      self.bean_grid[trial_index][left_up_grid_index][1] ]
-                    if random.random()<0.5:
-                        pacman_grid=[min_mid_point1[0],random.randint(min_mid_point1[1],self.dimension-1)]
-                    else:
-                        pacman_grid = [min_mid_point2[0], random.randint(0,min_mid_point2[1])]
-        else:
-            left_grid_index = [self.bean_grid[trial_index][0][1], self.bean_grid[trial_index][1][1]]. \
-                index(min([self.bean_grid[trial_index][0][1], self.bean_grid[trial_index][1][1]]))
-            right_grid_index = not left_grid_index
-            mid_point = [self.bean_grid[trial_index][left_grid_index][0],
-                              self.bean_grid[trial_index][left_grid_index][1] + bean_distance / 2]
-            if random.random()<0.5:
-                pacman_grid = [random.randint(0,mid_point[0]), mid_point[1]]
-            else:
-                pacman_grid=[random.randint(mid_point[0],self.dimension-1), mid_point[1]]
-        if two_grid_distance(pacman_grid,self.bean_grid[trial_index][0])==\
-            two_grid_distance(pacman_grid,self.bean_grid[trial_index][0]):
-            return pacman_grid
-        else :
-            return 0
 
 class Writer(object):
 
@@ -515,8 +471,8 @@ def main():
                      ("positive_feedback_path",os.path.join(project_path, "images/positive_feedback.png")),
                      ("negative_feedback_path",os.path.join(project_path, "images/negative_feedback.png")),
                      ("results_path",os.path.join(project_path,"results/")),
-                     ("sheep_position_path", os.path.join(project_path, "sheep_position.xlsx")),
-                    ("position_path", os.path.join(project_path, "position.xlsx"))])
+                     ("sheep_wolf_position_path", os.path.join(project_path, "images/position_index.xlsx")),
+                     ("position_path", os.path.join(project_path, "position.xlsx"))])
     event_space=[pg.K_UP, pg.K_DOWN,pg.K_LEFT,pg.K_RIGHT]
     speed_pixel_per_second = 30
     dimension=21
@@ -543,17 +499,20 @@ def main():
                      "pacman_initial_grid_x", "pacman_initial_grid_y",
                     "bean_1_initial_grid_x", "bean_1_initial_grid_y",
                     "bean_2_initial_grid_x", "bean_2_initial_grid_y",
-                    "end_condition_reason", "total_trial_time",
-                     "noise_point_list","pacman_trajectory", "reaction_time"]
-    bean_position = Read_position_file(file_path["sheep_position_path"])
-    trial_number = bean_position.nrows - 1
-    bean_grid = [[[bean_position.cell(i+1, 0).value,
-                  bean_position.cell(i+1, 1).value],
-                 [bean_position.cell(i+1, 2).value,
-                  bean_position.cell(i+1, 3).value]
-                 ] for i in range(trial_number)]
-    generate_pacman_grid = Generate_pacman_grid(bean_grid, dimension)
-    pacman_grid = [generate_pacman_grid(i) for i in range(trialnumber)]
+                    "end_condition_reason",  "noise_point_list",
+                     "pacman_trajectory","step","first_intention",
+                     "last_intention","intention_list",
+                     "reaction_time","total_trial_time"]
+
+    position = Read_position_file(file_path["sheep_wolf_position_path"])
+    trial_number = position.nrows - 1
+    pacman_grid = [(position.cell(i + 1, 0).value,
+                    position.cell(i + 1, 1).value) for i in range(trial_number)]
+    bean_grid = [((position.cell(i + 1, 2).value,
+                   position.cell(i + 1, 3).value),
+                  (position.cell(i + 1, 4).value,
+                   position.cell(i + 1, 5).value)
+                  ) for i in range(trial_number)]
     participant_name = input("Please enter your name:")
     participant_order = input("Please enter your order:")
     test_or_experiment = input("test or experiment? ")
@@ -564,7 +523,7 @@ def main():
     trial = Trial(screen_trait, background_trait, bean_trait, pacman_trait, file_path, time, \
                   center_position, pacman_grid, bean_grid, \
                   action_space, event_space, speed_pixel_per_second, \
-                  noise_probability, font_information, score_information, count_step)
+                  noise_probability, font_information, score_information, count_step,dimension)
     writer = Writer(path, result_header, replace=False)
     print("loading......")
     expt(trialnumber, trial, writer)
