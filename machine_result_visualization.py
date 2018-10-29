@@ -442,7 +442,7 @@ def main():
                          ("height", speed_pixel_per_second * dimension)])
     background_trait = dict([("color", [0, 0, 0]), ("width", 1), ("dimension", 21)])
     center_position = (screen_trait["width"] / 2, screen_trait["height"] / 2)
-    trialnumber = 60
+    trialnumber =  60
     bean_trait = dict([("color", [0, 0, 0]), ("size", 10),
                        ("bean_disappear_probability", 1)])
     pacman_trait = dict([("color", [255, 48, 48]), ("size", 10)])
