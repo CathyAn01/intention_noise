@@ -503,7 +503,6 @@ def main():
                      "pacman_trajectory","step","first_intention",
                      "last_intention","intention_list",
                      "reaction_time","total_trial_time"]
-
     position = Read_position_file(file_path["sheep_wolf_position_path"])
     trial_number = position.nrows - 1
     pacman_grid = [(position.cell(i + 1, 0).value,
