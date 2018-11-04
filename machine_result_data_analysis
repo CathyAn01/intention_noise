@@ -1,5 +1,18 @@
 import pandas as pd
 import os
+import openpyxl
+import collections as co
+import numpy
+
+
+def dict_to_string(values={}, sep="_", prefix="", postfix=""):
+    signature = prefix
+    for (key, value) in values.items():
+        signature = sep.join((signature, str(key), str(value)))
+
+    signature = signature + postfix
+    signature = signature.lstrip(sep)
+    return signature
 
 def Count_prediction_error_n_step(data,intention_data_list,n_step):
     data_number=data.shape[0]
@@ -10,6 +23,50 @@ def Count_prediction_error_n_step(data,intention_data_list,n_step):
 
     prediction_error_n_step=count_correct_prediction/data_number
     return prediction_error_n_step
+
+def count_certain_number_in_list(list_to_manipulate, certain_number):
+    count = 0
+    number_index_initial = 0
+    index_list=[]
+    for number in list_to_manipulate:
+        if certain_number == number:
+            count = count + 1
+            index_list.append(certain_number)
+
+    return count,index_list
+
+class Writer(object):
+    """Docstring for Writer. """
+
+    def __init__(self, path, replace=False):
+        """TODO: to be defined1.
+
+        @param path TODO
+        @param mode TODO
+
+        """
+        self._path = path
+        self._replace = replace
+        self._index = 0
+
+    def __call__(self, **kwargs):
+        if self._replace and self._couter == 0:
+            mode = "w"
+        else:
+            mode = "a"
+
+        if self._index == 0:
+            header = True
+        else:
+            header = False
+
+        result_dict = {}
+        result_dict.update(kwargs)
+        result_df = pd.DataFrame(data=result_dict,
+                                 index=[self._index])
+        result_df.to_csv(self._path, header=header, mode=mode)
+
+        self._index += 1
 
 def Count_first_intention_prediction_error(data,first_intention,last_intention):
     prediction_correct_data=data[data["first_intention"]==data["last_intention"]]
@@ -27,19 +84,33 @@ def preprocess_str_list_data(data_df,particular_columns):
     data_list = [eval(data) for data in data_pre_list ]
     return data_list
 
+
 def main():
     project_path = os.path.abspath(".")
-    file_path = dict([("results_path", os.path.join(project_path, "results/"))])
+    values=co.OrderedDict()
+    values["participant_name"] = input("participant_name:")
+    values["noise_probability"] = input("noise_probability:")
+    values["data_number"] = input("data_number:")
+    file_path = dict([("results_path", os.path.join(project_path, "results/")),
+                      ("indicator_output_path",os.path.join(project_path, "data_analysis/",
+                                                            dict_to_string(values,sep="_", postfix=".xlsx")))])
     file_format = [".xlsx"]
     certain_format_file_name = list_all_certain_format_filename(file_path["results_path"], file_format)
     data_frame_list =pd.read_excel(certain_format_file_name[0])
     data = pd.DataFrame(data_frame_list)
+    dimension_data=data.shape
     average_step=data["step"].mean()
     prediction_error=Count_first_intention_prediction_error(data,data["first_intention"],data["last_intention"])
     intention_data_list = preprocess_str_list_data(data,16)
+    first_intention_step_list=numpy.array([intention_data_list[i].index(data.iat[i,14])+1 for i in range(dimension_data[0])])
+    average_first_intention_step=numpy.mean(first_intention_step_list)
     prediction_error_n_step=Count_prediction_error_n_step(data["last_intention"],intention_data_list,1)
     result = dict([("average_step",average_step), ("prediction_error",prediction_error),
-                   ("prediction_error_1_step",prediction_error_n_step)])
+                   ("prediction_error_1_step",prediction_error_n_step),
+                   ("average_first_intention_step",average_first_intention_step)])
+    print(result)
+
+
 
 
 
