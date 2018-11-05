@@ -18,8 +18,11 @@ def Count_prediction_error_n_step(data,intention_data_list,n_step):
     data_number=data.shape[0]
     count_correct_prediction=0
     for i in range(data_number):
-        if data.iat[i]==intention_data_list[i][n_step]:
-            count_correct_prediction=count_correct_prediction+1
+        length=len(intention_data_list[i])
+        if n_step<length:
+            data_number=data_number+1
+            if data.iat[i]==intention_data_list[i][n_step]:
+                count_correct_prediction=count_correct_prediction+1
 
     prediction_error_n_step=count_correct_prediction/data_number
     return prediction_error_n_step
@@ -90,9 +93,10 @@ def main():
     # values["noise_probability"] = input("noise_probability:")
     # values["data_number"] = input("data_number:")
     file_path = dict([("results_path", os.path.join(project_path, "results/")),
-                      ("indicator_output_path",os.path.join(project_path, "data_analysis/indicator.csv"))])
+                      ("indicator_output_path",os.path.join(project_path, "data_analysis/indicator_1.csv"))])
 
     file_format = [".xlsx"]
+    n_step=20
     certain_format_file_name = list_all_certain_format_filename(file_path["results_path"], file_format)
     for i in range(len(certain_format_file_name)):
         data_frame_list =pd.read_excel(certain_format_file_name[i])
@@ -103,10 +107,11 @@ def main():
         intention_data_list = preprocess_str_list_data(data,16)
         first_intention_step_list=numpy.array([intention_data_list[i].index(data.iat[i,14])+1 for i in range(dimension_data[0])])
         average_first_intention_step=numpy.mean(first_intention_step_list)
-        prediction_error_n_step=Count_prediction_error_n_step(data["last_intention"],intention_data_list,1)
+        prediction_error_n_step=[Count_prediction_error_n_step(data["last_intention"],intention_data_list,i) for i in range(n_step)]
         values["file_name"]=certain_format_file_name[i]
+        values["subject"]="machine"
         result = dict([("average_step",average_step), ("prediction_error",prediction_error),
-                       ("prediction_error_1_step",prediction_error_n_step),
+                       ("prediction_error_n_step",str(prediction_error_n_step)),
                        ("average_first_intention_step",average_first_intention_step)])
         values.update(result)
         writer=Writer(file_path["indicator_output_path"])
