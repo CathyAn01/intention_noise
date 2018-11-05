@@ -47,15 +47,14 @@ class Writer(object):
         """
         self._path = path
         self._replace = replace
-        self._index = 0
 
-    def __call__(self, **kwargs):
+    def __call__(self, kwargs,index):
         if self._replace and self._couter == 0:
             mode = "w"
         else:
             mode = "a"
 
-        if self._index == 0:
+        if index == 0:
             header = True
         else:
             header = False
@@ -63,10 +62,9 @@ class Writer(object):
         result_dict = {}
         result_dict.update(kwargs)
         result_df = pd.DataFrame(data=result_dict,
-                                 index=[self._index])
+                                 index=[index])
         result_df.to_csv(self._path, header=header, mode=mode)
 
-        self._index += 1
 
 def Count_first_intention_prediction_error(data,first_intention,last_intention):
     prediction_correct_data=data[data["first_intention"]==data["last_intention"]]
@@ -88,29 +86,31 @@ def preprocess_str_list_data(data_df,particular_columns):
 def main():
     project_path = os.path.abspath(".")
     values=co.OrderedDict()
-    values["participant_name"] = input("participant_name:")
-    values["noise_probability"] = input("noise_probability:")
-    values["data_number"] = input("data_number:")
+    # values["participant_name"] = input("participant_name:")
+    # values["noise_probability"] = input("noise_probability:")
+    # values["data_number"] = input("data_number:")
     file_path = dict([("results_path", os.path.join(project_path, "results/")),
-                      ("indicator_output_path",os.path.join(project_path, "data_analysis/",
-                                                            dict_to_string(values,sep="_", postfix=".xlsx")))])
+                      ("indicator_output_path",os.path.join(project_path, "data_analysis/indicator.csv"))])
+
     file_format = [".xlsx"]
     certain_format_file_name = list_all_certain_format_filename(file_path["results_path"], file_format)
-    data_frame_list =pd.read_excel(certain_format_file_name[0])
-    data = pd.DataFrame(data_frame_list)
-    dimension_data=data.shape
-    average_step=data["step"].mean()
-    prediction_error=Count_first_intention_prediction_error(data,data["first_intention"],data["last_intention"])
-    intention_data_list = preprocess_str_list_data(data,16)
-    first_intention_step_list=numpy.array([intention_data_list[i].index(data.iat[i,14])+1 for i in range(dimension_data[0])])
-    average_first_intention_step=numpy.mean(first_intention_step_list)
-    prediction_error_n_step=Count_prediction_error_n_step(data["last_intention"],intention_data_list,1)
-    result = dict([("average_step",average_step), ("prediction_error",prediction_error),
-                   ("prediction_error_1_step",prediction_error_n_step),
-                   ("average_first_intention_step",average_first_intention_step)])
-    print(result)
-
-
+    for i in range(len(certain_format_file_name)):
+        data_frame_list =pd.read_excel(certain_format_file_name[i])
+        data = pd.DataFrame(data_frame_list)
+        dimension_data=data.shape
+        average_step=data["step"].mean()
+        prediction_error=Count_first_intention_prediction_error(data,data["first_intention"],data["last_intention"])
+        intention_data_list = preprocess_str_list_data(data,16)
+        first_intention_step_list=numpy.array([intention_data_list[i].index(data.iat[i,14])+1 for i in range(dimension_data[0])])
+        average_first_intention_step=numpy.mean(first_intention_step_list)
+        prediction_error_n_step=Count_prediction_error_n_step(data["last_intention"],intention_data_list,1)
+        values["file_name"]=certain_format_file_name[i]
+        result = dict([("average_step",average_step), ("prediction_error",prediction_error),
+                       ("prediction_error_1_step",prediction_error_n_step),
+                       ("average_first_intention_step",average_first_intention_step)])
+        values.update(result)
+        writer=Writer(file_path["indicator_output_path"])
+        writer(values,i)
 
 
 
